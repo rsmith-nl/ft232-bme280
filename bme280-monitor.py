@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-# file: bmp280-monitor.py
+# file: bme280-monitor.py
 # vim:fileencoding=utf-8:fdm=marker:ft=python
 #
 # Copyright © 2018 R.F. Smith <rsmith@xs4all.nl>.
 # SPDX-License-Identifier: MIT
 # Created: 2018-04-22T20:56:36+0200
-# Last modified: 2018-04-27T13:43:13+0200
+# Last modified: 2018-04-28T01:08:30+0200
 """
-Monitoring program for the Bosch BMP280 temperature and pressure sensor.
+Monitoring program for the Bosch BME280 temperature, pressure and humidity sensor.
 The sensor is connected to the computer via an FT232H using SPI.
 
 Connect 5V and ground from the FT232H to their respective pins on the BMP280.
@@ -22,7 +22,7 @@ import sys
 import time
 
 from pyftdi.spi import SpiController
-from bmp280 import Bmp280spi
+from bme280 import Bme280spi
 
 __version__ = '1.0'
 
@@ -44,7 +44,7 @@ class Port(IntEnum):
 
 def main(argv):
     """
-    Entry point for bmp280-monitor.py
+    Entry point for bme280-monitor.py
 
     Arguments:
         argv: command line arguments
@@ -58,25 +58,26 @@ def main(argv):
     ctrl.configure('ftdi://ftdi:232h/{}'.format(args.device))
     spi = ctrl.get_port(Port[args.cs].value)
     spi.set_frequency(args.prequency)
-    bmp280 = Bmp280spi(spi)
+    bme280 = Bme280spi(spi)
 
     # Open the data file.
     datafile = open(args.path.format(now), 'w')
 
     # Write datafile header.
-    datafile.write('# BMP280 data.\n# Started monitoring at {}.\n'.format(now))
+    datafile.write('# BME280 data.\n# Started monitoring at {}.\n'.format(now))
     datafile.write('# Per line, the data items are:\n')
     datafile.write('# * UTC date and time in ISO8601 format\n')
     datafile.write('# * Temperature in °C\n')
     datafile.write('# * Pressure in Pa\n')
+    datafile.write('# * Relative humidity in %.\n')
     datafile.flush()
 
     # Read and write the data.
     try:
         while True:
             now = datetime.utcnow().strftime('%FT%TZ')
-            temperature, pressure = bmp280.read()
-            line = '{} {:.2f} {:.0f}\n'.format(now, temperature, pressure)
+            temperature, pressure, humidity = bme280.read()
+            line = '{} {:.2f} {:.0f} {:.2f}\n'.format(now, temperature, pressure, humidity)
             datafile.write(line)
             datafile.flush()
             time.sleep(args.interval)
@@ -119,7 +120,7 @@ def process_arguments(argv):
         'path',
         nargs=1,
         help=r'path template for the data file. Should contain {}. '
-        r'For example "/tmp/bmp280-{}.d"')
+        r'For example "/tmp/bme280-{}.d"')
     args = parser.parse_args(argv)
     args.path = args.path[0]
     errormsg = None
