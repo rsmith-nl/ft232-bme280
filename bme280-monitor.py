@@ -5,7 +5,7 @@
 # Copyright © 2018 R.F. Smith <rsmith@xs4all.nl>.
 # SPDX-License-Identifier: MIT
 # Created: 2018-04-22T20:56:36+0200
-# Last modified: 2018-04-28T08:33:07+0200
+# Last modified: 2018-04-28T18:31:06+0200
 """
 Monitoring program for the Bosch BME280 temperature, pressure and humidity sensor.
 The sensor is connected to the computer via an FT232H using SPI.
@@ -57,7 +57,7 @@ def main(argv):
     ctrl = SpiController()
     ctrl.configure('ftdi://ftdi:232h/{}'.format(args.device))
     spi = ctrl.get_port(Port[args.cs].value)
-    spi.set_frequency(args.prequency)
+    spi.set_frequency(args.frequency)
     try:
         bme280 = Bme280spi(spi)
     except RuntimeError as err:
