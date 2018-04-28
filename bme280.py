@@ -4,7 +4,7 @@
 # Copyright © 2018 R.F. Smith <rsmith@xs4all.nl>.
 # SPDX-License-Identifier: MIT
 # Created: 2018-04-08T22:38:40+0200
-# Last modified: 2018-04-28T20:18:12+0200
+# Last modified: 2018-04-28T21:16:34+0200
 """
 Code to use a BME280 with FT232H using SPI or I²C connection.
 Both connections use the pyftdi API.
@@ -18,6 +18,7 @@ class Reg(IntEnum):
     """Registers of the BME280."""
     ID = 0xD0
     ID_VAL = 0x60  # Contents of the ID register for a BME280.
+    SOFTRESET = 0xE0
     CTRLHUM = 0xF2
     STATUS = 0xF3
     CONTROL = 0xF4
@@ -25,6 +26,7 @@ class Reg(IntEnum):
     TEMP_MSB = 0xFA
     PRESS_MSB = 0xF7
     HUMID_MSB = 0xFD
+    HUMID_LSB = 0xFE
     # Compensation coefficient registers.
     T1 = 0x88
     T2 = 0x8A
@@ -57,6 +59,9 @@ class Bme280base:
         # Check if BME280
         if self._readU8(Reg.ID) != Reg.ID_VAL:
             raise RuntimeError('Not a BME280')
+        # Reset the chip
+        self._reset()
+        sleep(0.5)
         # Read the compensation coefficients.
         self._dig_T1 = float(self._readU16(Reg.T1))
         self._dig_T2 = float(self._readS16(Reg.T2))
@@ -77,8 +82,18 @@ class Bme280base:
         self._dig_H4 = float((E4 << 4) | (E5 & 0x0F))
         self._dig_H5 = float((E6 << 4) | (E5 >> 4))
         self._dig_H6 = float(self._readS8(Reg.H6))
+        self._oversample_hum()
+
+    def _reset(self):
+        """Soft-reset the chip."""
+        raise NotImplementedError
+
+    def _oversample_hum(self):
+        """Set 16x oversampling"""
+        raise NotImplementedError
 
     def _forcedmode(self):
+        """Set the sensor to forced mode."""
         raise NotImplementedError
 
     def _readU8(self, register):
@@ -204,7 +219,9 @@ class Bme280base:
         self._press = p
         # print("DEBUG: self._press = ", self._press)
         # Read and process the relative humidity
-        adc_H = self._readU16(Reg.HUMID_MSB)
+        adc_H_msb = self._readU8(Reg.HUMID_MSB)
+        adc_H_lsb = self._readU8(Reg.HUMID_LSB)
+        adc_H = adc_H_msb << 8 | adc_H_lsb
         var_H = t_fine - 76800.0
         var_H = ((adc_H - (self._dig_H4 * 64.0 + self._dig_H5 / 16384.0 * var_H)) *
                  (self._dig_H2 / 65536.0 * (1.0 + self._dig_H6 / 67108864 * var_H *
@@ -242,26 +259,26 @@ class Bme280spi(Bme280base):
         self._spi = spi
         super(Bme280spi, self).__init__()
 
+    def _reset(self):
+        self._spi.exchange([Reg.SOFTRESET & ~0x80, 0xB6])
+
+    def _oversample_hum(self):
+        self._spi.exchange([Reg.CTRLHUM & ~0x80, 0x03])
+
     def _forcedmode(self):
-        """Set the sensor to forced mode."""
-        self._spi.exchange([Reg.CTRLHUM & ~0x80, 0x87])
         self._spi.exchange([Reg.CONTROL & ~0x80, 0xFE])
 
     def _readU8(self, register):
-        """Read an unsigned byte from the specified register"""
         return self._spi.exchange([register | 0x80], 1)[0]
 
     def _readU8_3(self, register):
-        """Read three bytes starting at the specified register"""
         return self._spi.exchange([register | 0x80], 3)
 
     def _readU16(self, register):
-        """Read an unsigned short from the specified register"""
         data = self._spi.exchange([register | 0x80], 2)
         return data[1] << 8 | data[0]
 
     def _readU24(self, register):
-        """Read the 2.5 byte temperature or pressure registers."""
         data = self._spi.exchange([register | 0x80], 3)
         rv = float((data[0] << 16 | data[1] << 8 | data[2]) >> 4)
         return rv
@@ -290,26 +307,26 @@ class Bme280i2c(Bme280base):
         self._i2c = i2c
         super(Bme280i2c, self).__init__()
 
+    def _reset(self):
+        self._i2c.write_to(Reg.SOFTRESET, b'\xb6')
+
+    def _oversample_hum(self):
+        self._i2c.write_to(Reg.CTRLHUM, b'\x03')
+
     def _forcedmode(self):
-        """Set the sensor to forced mode."""
-        self._spi.write_to(Reg.CTRLHUM, b'\x87')
         self._i2c.write_to(Reg.CONTROL, b'\xfe')
 
     def _readU8(self, register):
-        """Read an unsigned byte from the specified register"""
         return self._i2c.read_from(register, 1)[0]
 
     def _readU8_3(self, register):
-        """Read three bytes starting at the specified register"""
         return self._i2c.read_from(register, 3)
 
     def _readU16(self, register):
-        """Read an unsigned short from the specified register"""
         data = self._i2c.read_from(register, 2)
         return data[1] << 8 | data[0]
 
     def _readU24(self, register):
-        """Read the 2.5 byte temperature or pressure registers."""
         data = self._i2c.read_from(register, 3)
         rv = float((data[0] << 16 | data[1] << 8 | data[2]) >> 4)
         return rv
