@@ -1,0 +1,16 @@
+Original code:
+
+    var_H = (adc_H - (((double)dig_H4) * 64.0 + ((double)dig_H5) / 16384.0 *
+    var_H)) * (((double)dig_H2) / 65536.0 * (1.0 +((double)dig_H6) / 67108864 *
+    var_H * (1.0 + ((double)dig_H3) / 67108864.0 * var_H)))
+
+First, replace the “(double)” by “self._”. Then remove redundant parenthesis.
+Lastly, add a pair of parenthesis around the whole equation for formatting.
+
+Python 3 translation:
+
+    var_H = ((adc_H - (self._dig_H4 * 64.0 + self._dig_H5 / 16384.0 *
+        var_H)) * (self._dig_H2 / 65536.0 * (1.0 + self._dig_H6 / 67108864 *
+        var_H * (1.0 + self._dig_H3 / 67108864.0 * var_H)))
+    )
+

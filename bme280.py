@@ -4,10 +4,10 @@
 # Copyright © 2018 R.F. Smith <rsmith@xs4all.nl>.
 # SPDX-License-Identifier: MIT
 # Created: 2018-04-08T22:38:40+0200
-# Last modified: 2018-04-28T01:04:42+0200
+# Last modified: 2018-04-28T18:25:36+0200
 """
-Code to use a BME280 with FT232H using SPI.
-The SPI interface provided by pyftdi is used.
+Code to use a BME280 with FT232H using SPI or I²C connection.
+Both connections use the pyftdi API.
 """
 
 from enum import IntEnum
@@ -15,6 +15,7 @@ from time import sleep
 
 
 class Reg(IntEnum):
+    """Registers of the BME280."""
     ID = 0xD0
     ID_VAL = 0x60  # Contents of the ID register for a BME280.
     CTRLHUM = 0xF2
@@ -44,24 +45,12 @@ class Reg(IntEnum):
     H6 = 0xE7
 
 
-class Bme280spi:
-    def __init__(self, spi):
-        """Create a Bme280spi instance.
+class Bme280base:
+    """Base class for BME."""
 
-        Arguments:
-            spi: SpiPort.
-
-        >> from pyftdi.spi import SpiController
-        >> from BME280 import Bme280spi
-        >> ctrl = SpiController()
-        >> ctrl.configure('ftdi://ftdi:232h/1')
-        >> spi = ctrl.get_port(0)
-        >> spi.set_frequency(1000000)
-        >> bmp280 = Bme280spi(spi)
-
-        N.B: port 0 is D3 on the Adafruit FT232H!
-        """
-        self._spi = spi
+    def __init__(self):
+        """Create a Bme280base instance. This is not meant to be instantiated directly.
+        Use Bme280spi or Bme280i2c instead!"""
         self._temp = None
         self._press = None
         self._humid = None
@@ -84,39 +73,33 @@ class Bme280spi:
         self._dig_H1 = float(self._readU8(Reg.H1))
         self._dig_H2 = float(self._readS16(Reg.H1))
         self._dig_H3 = float(self._readU8(Reg.H3))
-        E4, E5, E6 = self._spi.exchange([Reg.H4 | 0x80], 3)
+        E4, E5, E6 = self._readU8_3(Reg.H4)
         self._dig_H4 = float((E4 << 4) | (E5 & 0x0F))
         self._deg_H5 = float((E6 << 4) | (E5 >> 4))
         self._dig_H6 = float(self._readS8(Reg.H6))
 
+    def _forcedmode(self):
+        raise NotImplementedError
+
     def _readU8(self, register):
         """Read an unsigned byte from the specified register"""
-        return self._spi.exchange([register | 0x80], 1)[0]
+        raise NotImplementedError
 
-    def _readS8(self, register):
-        """Read a signed byte from the specified register"""
-        result = self._readU8(register)
-        if result > 128:
-            result -= 256
-        return result
+    def _readU8_3(self, register):
+        """Read three bytes starting at the specified register"""
+        raise NotImplementedError
 
     def _readU16(self, register):
-        """Read an unsigned short starting at specified register"""
-        data = self._spi.exchange([register | 0x80], 2)
-        return data[1] << 8 | data[0]
+        """Read an unsigned short from the specified register"""
+        raise NotImplementedError
 
     def _readS16(self, register):
-        """Read an unsigned short starting at specified register"""
-        result = self._readU16(register)
-        if result > 32767:
-            result -= 65536
-        return result
+        """Read an unsigned short from the specified register"""
+        raise NotImplementedError
 
     def _readU24(self, register):
         """Read the 2.5 byte temperature or pressure registers."""
-        data = self._spi.exchange([register | 0x80], 3)
-        rv = float((data[0] << 16 | data[1] << 8 | data[2]) >> 4)
-        return rv
+        raise NotImplementedError
 
     @property
     def comp(self):
@@ -163,14 +146,13 @@ class Bme280spi:
         return self._humid
 
     def read(self):
-        """Read the sensor data from the chip and return (temperature, pressure)."""
+        """Read the sensor data from the chip and return (temperature, pressure, humidity)."""
         # Do one measurement in high resolution, forced mode.
-        self._spi.exchange([Reg.CTRLHUM & ~0x80, 0x87])
-        self._spi.exchange([Reg.CONTROL & ~0x80, 0xFE])
-        # Wait while maesurement is running
+        self._forcedmode()
+        # Wait while measurement is running
         while self._readU8(Reg.STATUS) != 0:
             sleep(0.01)
-        # Now read and process the temperature.
+        # Now read and process temperature.
         UT = self._readU24(Reg.TEMP_MSB)
         # print("DEBUG: UT = ", UT)
         var1 = (UT / 16384.0 - self._dig_T1 / 1024.0) * self._dig_T2
@@ -224,3 +206,114 @@ class Bme280spi:
             var_H = 0.0
         self._humid = var_H
         return (self._temp, self._press, self._humid)
+
+
+class Bme280spi(Bme280base):
+    """Class to use a BME280 over SPI."""
+
+    def __init__(self, spi):
+        """Create a Bme280spi instance.
+
+        Arguments:
+            spi: SpiPort.
+
+        >> from pyftdi.spi import SpiController
+        >> from bme280 import Bme280spi
+        >> ctrl = SpiController()
+        >> ctrl.configure('ftdi://ftdi:232h/1')
+        >> spi = ctrl.get_port(0)
+        >> spi.set_frequency(1000000)
+        >> bme280 = Bme280spi(spi)
+
+        N.B: port 0 is pin D3 on the Adafruit FT232H. Only pins D3-D7 can be
+        used as chip select! So you can connect at most 5 spi devices to the
+        FT232H.
+        """
+        self._spi = spi
+        super(Bme280spi, self).__init__()
+
+    def _forcedmode(self):
+        """Set the sensor to forced mode."""
+        self._spi.exchange([Reg.CTRLHUM & ~0x80, 0x87])
+        self._spi.exchange([Reg.CONTROL & ~0x80, 0xFE])
+
+    def _readU8(self, register):
+        """Read an unsigned byte from the specified register"""
+        return self._spi.exchange([register | 0x80], 1)[0]
+
+    def _readU8_3(self, register):
+        """Read three bytes starting at the specified register"""
+        return self._spi.exchange([register | 0x80], 3)
+
+    def _readU16(self, register):
+        """Read an unsigned short from the specified register"""
+        data = self._spi.exchange([register | 0x80], 2)
+        return data[1] << 8 | data[0]
+
+    def _readS16(self, register):
+        """Read an unsigned short from the specified register"""
+        result = self._readU16(register)
+        if result > 32767:
+            result -= 65536
+        return result
+
+    def _readU24(self, register):
+        """Read the 2.5 byte temperature or pressure registers."""
+        data = self._spi.exchange([register | 0x80], 3)
+        rv = float((data[0] << 16 | data[1] << 8 | data[2]) >> 4)
+        return rv
+
+
+class Bme280i2c(Bme280base):
+    """Class to use a BME280 over I²C."""
+
+    def __init__(self, i2c):
+        """Create a Bme280i2c instance.
+
+        Arguments:
+            i2c: i2cPort.
+
+        >> from pyftdi.i2c import I2cController
+        >> from bme280 import Bme280i2c
+        >> ctrl = I2cController()
+        >> ctrl.configure('ftdi://ftdi:232h/1')
+        >> i2c = ctrl.get_port(0x77)
+        >> bme280 = Bme280i2c(i2c)
+
+        N.B: On the Adafruit breakout board, SDO is pulled high by default.
+        So the default I²C address is 0x77. The port address will be 0x76
+        if SDO is pulled low.
+        """
+        self._i2c = i2c
+        super(Bme280i2c, self).__init__()
+
+    def _forcedmode(self):
+        """Set the sensor to forced mode."""
+        self._spi.write_to(Reg.CTRLHUM, b'\x87')
+        self._i2c.write_to(Reg.CONTROL, b'\xfe')
+
+    def _readU8(self, register):
+        """Read an unsigned byte from the specified register"""
+        return self._i2c.read_from(register, 1)[0]
+
+    def _readU8_3(self, register):
+        """Read three bytes starting at the specified register"""
+        return self._i2c.read_from(register, 3)
+
+    def _readU16(self, register):
+        """Read an unsigned short from the specified register"""
+        data = self._i2c.read_from(register, 2)
+        return data[1] << 8 | data[0]
+
+    def _readS16(self, register):
+        """Read an unsigned short from the specified register"""
+        result = self._readU16(register)
+        if result > 32767:
+            result -= 65536
+        return result
+
+    def _readU24(self, register):
+        """Read the 2.5 byte temperature or pressure registers."""
+        data = self._i2c.read_from(register, 3)
+        rv = float((data[0] << 16 | data[1] << 8 | data[2]) >> 4)
+        return rv
