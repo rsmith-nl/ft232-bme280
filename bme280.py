@@ -4,7 +4,7 @@
 # Copyright © 2018 R.F. Smith <rsmith@xs4all.nl>.
 # SPDX-License-Identifier: MIT
 # Created: 2018-04-08T22:38:40+0200
-# Last modified: 2018-04-28T18:25:36+0200
+# Last modified: 2018-04-28T20:18:12+0200
 """
 Code to use a BME280 with FT232H using SPI or I²C connection.
 Both connections use the pyftdi API.
@@ -71,11 +71,11 @@ class Bme280base:
         self._dig_P8 = float(self._readS16(Reg.P8))
         self._dig_P9 = float(self._readS16(Reg.P9))
         self._dig_H1 = float(self._readU8(Reg.H1))
-        self._dig_H2 = float(self._readS16(Reg.H1))
+        self._dig_H2 = float(self._readS16(Reg.H2))
         self._dig_H3 = float(self._readU8(Reg.H3))
-        E4, E5, E6 = self._readU8_3(Reg.H4)
+        E4, E5, E6 = self._readU8_3(Reg.H45)
         self._dig_H4 = float((E4 << 4) | (E5 & 0x0F))
-        self._deg_H5 = float((E6 << 4) | (E5 >> 4))
+        self._dig_H5 = float((E6 << 4) | (E5 >> 4))
         self._dig_H6 = float(self._readS8(Reg.H6))
 
     def _forcedmode(self):
@@ -84,6 +84,13 @@ class Bme280base:
     def _readU8(self, register):
         """Read an unsigned byte from the specified register"""
         raise NotImplementedError
+
+    def _readS8(self, register):
+        """Read an unsigned byte from the specified register"""
+        result = self._readU8(register)
+        if result > 127:
+            result -= 256
+        return result
 
     def _readU8_3(self, register):
         """Read three bytes starting at the specified register"""
@@ -95,7 +102,10 @@ class Bme280base:
 
     def _readS16(self, register):
         """Read an unsigned short from the specified register"""
-        raise NotImplementedError
+        result = self._readU16(register)
+        if result > 32767:
+            result -= 65536
+        return result
 
     def _readU24(self, register):
         """Read the 2.5 byte temperature or pressure registers."""
@@ -122,7 +132,7 @@ class Bme280base:
             'dig_H3': self._dig_H3,
             'dig_H4': self._dig_H4,
             'dig_H5': self._dig_H5,
-            'dig_H6': self._dig_H5
+            'dig_H6': self._dig_H6
         }
 
     @property
@@ -150,7 +160,7 @@ class Bme280base:
         # Do one measurement in high resolution, forced mode.
         self._forcedmode()
         # Wait while measurement is running
-        while self._readU8(Reg.STATUS) != 0:
+        while self._readU8(Reg.STATUS) & 0x08:
             sleep(0.01)
         # Now read and process temperature.
         UT = self._readU24(Reg.TEMP_MSB)
@@ -250,13 +260,6 @@ class Bme280spi(Bme280base):
         data = self._spi.exchange([register | 0x80], 2)
         return data[1] << 8 | data[0]
 
-    def _readS16(self, register):
-        """Read an unsigned short from the specified register"""
-        result = self._readU16(register)
-        if result > 32767:
-            result -= 65536
-        return result
-
     def _readU24(self, register):
         """Read the 2.5 byte temperature or pressure registers."""
         data = self._spi.exchange([register | 0x80], 3)
@@ -304,13 +307,6 @@ class Bme280i2c(Bme280base):
         """Read an unsigned short from the specified register"""
         data = self._i2c.read_from(register, 2)
         return data[1] << 8 | data[0]
-
-    def _readS16(self, register):
-        """Read an unsigned short from the specified register"""
-        result = self._readU16(register)
-        if result > 32767:
-            result -= 65536
-        return result
 
     def _readU24(self, register):
         """Read the 2.5 byte temperature or pressure registers."""
