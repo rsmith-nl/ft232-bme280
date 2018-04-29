@@ -5,7 +5,7 @@
 # Copyright © 2018 R.F. Smith <rsmith@xs4all.nl>.
 # SPDX-License-Identifier: MIT
 # Created: 2018-04-22T20:56:36+0200
-# Last modified: 2018-04-28T18:31:06+0200
+# Last modified: 2018-04-29T14:35:33+0200
 """
 Monitoring program for the Bosch BME280 temperature, pressure and humidity sensor.
 The sensor is connected to the computer via an FT232H using SPI.
@@ -55,7 +55,7 @@ def main(argv):
 
     # Connect to the sensor.
     ctrl = SpiController()
-    ctrl.configure('ftdi://ftdi:232h/{}'.format(args.device))
+    ctrl.configure(args.device)
     spi = ctrl.get_port(Port[args.cs].value)
     spi.set_frequency(args.frequency)
     try:
@@ -101,9 +101,10 @@ def process_arguments(argv):
     parser.add_argument(
         '-d',
         '--device',
-        default=1,
-        type=int,
-        help='FT232 device number (default 1 for FT232*, 1 or 2 for 2232*, 1-4 for 4232* devices).'
+        default='ftdi://ftdi:232h/1',
+        type=str,
+        help='FT232 device (default "ftdi://ftdi:232h/1"). '
+        'See the pyftdi documentation for more information about the URL scheme.'
     )
     parser.add_argument(
         '-f',
