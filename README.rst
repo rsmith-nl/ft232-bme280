@@ -5,7 +5,7 @@ Reading temperature, pressure and relative humidity with a BME280 and an FT232H
 :tags: BME280, FT232H, Python3
 :author: Roland Smith
 
-.. Last modified: 2018-04-29T12:05:06+0200
+.. Last modified: 2018-04-29T15:24:18+0200
 
 
 Introduction
@@ -32,6 +32,9 @@ This code is based on similar code I wrote for the BMP280. I have used the
 datasheet for the sensor, the Bosch code on github and the Adafruit
 CircuitPython as references in writing these.
 
+This software has been written for Python 3 on the FreeBSD operating system.
+I expect it will work on other POSIX systems, and maybe even on ms-windows.
+But I haven't tested that.
 
 Wiring the BME280
 -----------------
