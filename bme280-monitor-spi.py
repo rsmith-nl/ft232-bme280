@@ -5,7 +5,7 @@
 # Copyright © 2018 R.F. Smith <rsmith@xs4all.nl>.
 # SPDX-License-Identifier: MIT
 # Created: 2018-04-22T20:56:36+0200
-# Last modified: 2018-04-29T14:35:33+0200
+# Last modified: 2018-05-05T23:49:48+0200
 """
 Monitoring program for the Bosch BME280 temperature, pressure and humidity sensor.
 The sensor is connected to the computer via an FT232H using SPI.
@@ -24,7 +24,7 @@ import time
 from pyftdi.spi import SpiController
 from bme280 import Bme280spi
 
-__version__ = '1.0'
+__version__ = '1.1'
 
 
 class Port(IntEnum):
@@ -64,17 +64,19 @@ def main(argv):
         print(err)
         sys.exit(1)
 
-    # Open the data file.
-    datafile = open(args.path.format(now), 'w')
+    if '{}' in args.path:
+        filename = args.path.format(now)
+    else:
+        filename = args.path
 
     # Write datafile header.
-    datafile.write('# BME280 data.\n# Started monitoring at {}.\n'.format(now))
-    datafile.write('# Per line, the data items are:\n')
-    datafile.write('# * UTC date and time in ISO8601 format\n')
-    datafile.write('# * Temperature in °C\n')
-    datafile.write('# * Pressure in Pa\n')
-    datafile.write('# * Relative humidity in %.\n')
-    datafile.flush()
+    with open(filename, 'a') as datafile:
+        datafile.write('# BME280 data.\n# Started monitoring at {}.\n'.format(now))
+        datafile.write('# Per line, the data items are:\n')
+        datafile.write('# * UTC date and time in ISO8601 format\n')
+        datafile.write('# * Temperature in °C\n')
+        datafile.write('# * Pressure in Pa\n')
+        datafile.write('# * Relative humidity in %.\n')
 
     # Read and write the data.
     try:
@@ -82,8 +84,8 @@ def main(argv):
             now = datetime.utcnow().strftime('%FT%TZ')
             temperature, pressure, humidity = bme280.read()
             line = '{} {:.2f} {:.0f} {:.2f}\n'.format(now, temperature, pressure, humidity)
-            datafile.write(line)
-            datafile.flush()
+            with open(filename, 'a') as datafile:
+                datafile.write(line)
             time.sleep(args.interval)
     except KeyboardInterrupt:
         sys.exit(1)
@@ -124,13 +126,14 @@ def process_arguments(argv):
     parser.add_argument(
         'path',
         nargs=1,
-        help=r'path template for the data file. Should contain {}. '
+        help=r'path template for the data file. If it contains "{}", '
+        r'the datetime the program was started will be added. '
         r'For example "/tmp/bme280-{}.d"')
     args = parser.parse_args(argv)
     args.path = args.path[0]
     errormsg = None
-    if not args.path or r'{}' not in args.path:
-        errormsg = r'No path given or {} not in path.'
+    if not args.path:
+        errormsg = r'No path given.'
     elif args.cs not in Port.__members__:
         errormsg = 'Invalid chip select line.'
     elif args.frequency < 92:
