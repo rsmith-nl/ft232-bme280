@@ -200,8 +200,7 @@ class Bme280base:
         # print("DEBUG: var2 = ", var2)
         var2 = var2 / 4.0 + self._dig_P4 * 65536.0
         # print("DEBUG: var2 = ", var2)
-        var1 = (self._dig_P3 * var1 * var1 / 534288.0 + self._dig_P2 * var1
-                ) / 534288.0
+        var1 = (self._dig_P3 * var1 * var1 / 534288.0 + self._dig_P2 * var1) / 534288.0
         # print("DEBUG: var1 = ", var1)
         var1 = (1.0 + var1 / 32768.0) * self._dig_P1
         # print("DEBUG: var1 = ", var1)
@@ -223,9 +222,14 @@ class Bme280base:
         adc_H_lsb = self._readU8(Reg.HUMID_LSB)
         adc_H = adc_H_msb << 8 | adc_H_lsb
         var_H = t_fine - 76800.0
-        var_H = ((adc_H - (self._dig_H4 * 64.0 + self._dig_H5 / 16384.0 * var_H)) *
-                 (self._dig_H2 / 65536.0 * (1.0 + self._dig_H6 / 67108864 * var_H *
-                                            (1.0 + self._dig_H3 / 67108864.0 * var_H))))
+        var_H = (
+            (adc_H - (self._dig_H4 * 64.0 + self._dig_H5 / 16384.0 * var_H)) * (
+                self._dig_H2 / 65536.0 * (
+                    1.0 + self._dig_H6 / 67108864 * var_H *
+                    (1.0 + self._dig_H3 / 67108864.0 * var_H)
+                )
+            )
+        )
         var_H = var_H * (1.0 - self._dig_H1 * var_H / 524288.0)
         if var_H > 100.0:
             var_H = 100.0

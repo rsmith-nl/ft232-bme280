@@ -120,15 +120,16 @@ def process_arguments(argv):
         '--interval',
         default=5,
         type=int,
-        help='interval between measurements (≥5 s, default 5 s).')
-    parser.add_argument(
-        '-v', '--version', action='version', version=__version__)
+        help='interval between measurements (≥5 s, default 5 s).'
+    )
+    parser.add_argument('-v', '--version', action='version', version=__version__)
     parser.add_argument(
         'path',
         nargs=1,
         help=r'path template for the data file. If it contains "{}", '
         r'the datetime the program was started will be added. '
-        r'For example "/tmp/bme280-{}.d"')
+        r'For example "/tmp/bme280-{}.d"'
+    )
     args = parser.parse_args(argv)
     args.path = args.path[0]
     errormsg = None
