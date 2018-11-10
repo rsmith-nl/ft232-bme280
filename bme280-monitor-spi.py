@@ -5,7 +5,7 @@
 # Copyright © 2018 R.F. Smith <rsmith@xs4all.nl>.
 # SPDX-License-Identifier: MIT
 # Created: 2018-04-22T20:56:36+0200
-# Last modified: 2018-05-05T23:49:48+0200
+# Last modified: 2018-11-10T16:39:28+0100
 """
 Monitoring program for the Bosch BME280 temperature, pressure and humidity sensor.
 The sensor is connected to the computer via an FT232H using SPI.
@@ -24,7 +24,7 @@ import time
 from pyftdi.spi import SpiController
 from bme280 import Bme280spi
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 
 class Port(IntEnum):
@@ -80,10 +80,14 @@ def main(argv):
 
     # Read and write the data.
     try:
+        # Throw the first read away; bogis pressure value.
+        bme280.read()
         while True:
             now = datetime.utcnow().strftime('%FT%TZ')
             temperature, pressure, humidity = bme280.read()
-            line = '{} {:.2f} {:.0f} {:.2f}\n'.format(now, temperature, pressure, humidity)
+            line = '{} {:.2f} {:.0f} {:.2f}\n'.format(
+                now, temperature, pressure, humidity
+            )
             with open(filename, 'a') as datafile:
                 datafile.write(line)
             time.sleep(args.interval)
