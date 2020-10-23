@@ -24,7 +24,7 @@ import time
 from pyftdi.spi import SpiController
 from bme280 import Bme280spi
 
-__version__ = '1.2'
+__version__ = "1.2"
 
 
 class Port(IntEnum):
@@ -50,7 +50,7 @@ def main(argv):
         argv: command line arguments
     """
 
-    now = datetime.utcnow().strftime('%FT%TZ')
+    now = datetime.utcnow().strftime("%FT%TZ")
     args = process_arguments(argv)
 
     # Connect to the sensor.
@@ -64,31 +64,31 @@ def main(argv):
         print(err)
         sys.exit(1)
 
-    if '{}' in args.path:
+    if "{}" in args.path:
         filename = args.path.format(now)
     else:
         filename = args.path
 
     # Write datafile header.
-    with open(filename, 'a') as datafile:
-        datafile.write('# BME280 data.\n# Started monitoring at {}.\n'.format(now))
-        datafile.write('# Per line, the data items are:\n')
-        datafile.write('# * UTC date and time in ISO8601 format\n')
-        datafile.write('# * Temperature in °C\n')
-        datafile.write('# * Pressure in Pa\n')
-        datafile.write('# * Relative humidity in %.\n')
+    with open(filename, "a") as datafile:
+        datafile.write("# BME280 data.\n# Started monitoring at {}.\n".format(now))
+        datafile.write("# Per line, the data items are:\n")
+        datafile.write("# * UTC date and time in ISO8601 format\n")
+        datafile.write("# * Temperature in °C\n")
+        datafile.write("# * Pressure in Pa\n")
+        datafile.write("# * Relative humidity in %.\n")
 
     # Read and write the data.
     try:
         # Throw the first read away; bogis pressure value.
         bme280.read()
         while True:
-            now = datetime.utcnow().strftime('%FT%TZ')
+            now = datetime.utcnow().strftime("%FT%TZ")
             temperature, pressure, humidity = bme280.read()
-            line = '{} {:.2f} {:.0f} {:.2f}\n'.format(
+            line = "{} {:.2f} {:.0f} {:.2f}\n".format(
                 now, temperature, pressure, humidity
             )
-            with open(filename, 'a') as datafile:
+            with open(filename, "a") as datafile:
                 datafile.write(line)
             time.sleep(args.interval)
     except KeyboardInterrupt:
@@ -98,53 +98,53 @@ def main(argv):
 def process_arguments(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        '-c',
-        '--cs',
+        "-c",
+        "--cs",
         default="D3",
         type=str,
-        help='FT232 pin to use for SPI chip select (default D3, range D3 - D7).'
+        help="FT232 pin to use for SPI chip select (default D3, range D3 - D7).",
     )
     parser.add_argument(
-        '-d',
-        '--device',
-        default='ftdi://ftdi:232h/1',
+        "-d",
+        "--device",
+        default="ftdi://ftdi:232h/1",
         type=str,
         help='FT232 device (default "ftdi://ftdi:232h/1"). '
-        'See the pyftdi documentation for more information about the URL scheme.'
+        "See the pyftdi documentation for more information about the URL scheme.",
     )
     parser.add_argument(
-        '-f',
-        '--frequency',
+        "-f",
+        "--frequency",
         default=100000,
         type=int,
-        help='SPI bus requency in Hz (default 100000 Hz, must be >91 Hz and <6 MHz).'
+        help="SPI bus requency in Hz (default 100000 Hz, must be >91 Hz and <6 MHz).",
     )
     parser.add_argument(
-        '-i',
-        '--interval',
+        "-i",
+        "--interval",
         default=5,
         type=int,
-        help='interval between measurements (≥5 s, default 5 s).'
+        help="interval between measurements (≥5 s, default 5 s).",
     )
-    parser.add_argument('-v', '--version', action='version', version=__version__)
+    parser.add_argument("-v", "--version", action="version", version=__version__)
     parser.add_argument(
-        'path',
+        "path",
         nargs=1,
         help=r'path template for the data file. If it contains "{}", '
-        r'the datetime the program was started will be added. '
-        r'For example "/tmp/bme280-{}.d"'
+        r"the datetime the program was started will be added. "
+        r'For example "/tmp/bme280-{}.d"',
     )
     args = parser.parse_args(argv)
     args.path = args.path[0]
     errormsg = None
     if not args.path:
-        errormsg = r'No path given.'
+        errormsg = r"No path given."
     elif args.cs not in Port.__members__:
-        errormsg = 'Invalid chip select line.'
+        errormsg = "Invalid chip select line."
     elif args.frequency < 92:
-        errormsg = 'Frequency must be between 92 Hz and 6 MHz.'
+        errormsg = "Frequency must be between 92 Hz and 6 MHz."
     if errormsg:
-        print(errormsg + '\n')
+        print(errormsg + "\n")
         parser.print_help()
         sys.exit(0)
     if args.interval < 5:
@@ -152,5 +152,5 @@ def process_arguments(argv):
     return args
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.argv[1:])

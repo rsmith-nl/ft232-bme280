@@ -16,6 +16,7 @@ from time import sleep
 
 class Reg(IntEnum):
     """Registers of the BME280."""
+
     ID = 0xD0
     ID_VAL = 0x60  # Contents of the ID register for a BME280.
     SOFTRESET = 0xE0
@@ -58,7 +59,7 @@ class Bme280base:
         self._humid = None
         # Check if BME280
         if self._readU8(Reg.ID) != Reg.ID_VAL:
-            raise RuntimeError('Not a BME280')
+            raise RuntimeError("Not a BME280")
         # Reset the chip
         self._reset()
         sleep(0.5)
@@ -130,24 +131,24 @@ class Bme280base:
     def comp(self):
         """Return the compensation coefficients as a dict."""
         return {
-            'dig_T1': self._dig_T1,
-            'dig_T2': self._dig_T2,
-            'dig_T3': self._dig_T3,
-            'dig_P1': self._dig_P1,
-            'dig_P2': self._dig_P2,
-            'dig_P3': self._dig_P3,
-            'dig_P4': self._dig_P4,
-            'dig_P5': self._dig_P5,
-            'dig_P6': self._dig_P6,
-            'dig_P7': self._dig_P7,
-            'dig_P8': self._dig_P8,
-            'dig_P9': self._dig_P9,
-            'dig_H1': self._dig_H1,
-            'dig_H2': self._dig_H2,
-            'dig_H3': self._dig_H3,
-            'dig_H4': self._dig_H4,
-            'dig_H5': self._dig_H5,
-            'dig_H6': self._dig_H6
+            "dig_T1": self._dig_T1,
+            "dig_T2": self._dig_T2,
+            "dig_T3": self._dig_T3,
+            "dig_P1": self._dig_P1,
+            "dig_P2": self._dig_P2,
+            "dig_P3": self._dig_P3,
+            "dig_P4": self._dig_P4,
+            "dig_P5": self._dig_P5,
+            "dig_P6": self._dig_P6,
+            "dig_P7": self._dig_P7,
+            "dig_P8": self._dig_P8,
+            "dig_P9": self._dig_P9,
+            "dig_H1": self._dig_H1,
+            "dig_H2": self._dig_H2,
+            "dig_H3": self._dig_H3,
+            "dig_H4": self._dig_H4,
+            "dig_H5": self._dig_H5,
+            "dig_H6": self._dig_H6,
         }
 
     @property
@@ -182,8 +183,10 @@ class Bme280base:
         # print("DEBUG: UT = ", UT)
         var1 = (UT / 16384.0 - self._dig_T1 / 1024.0) * self._dig_T2
         # print("DEBUG: var1 = ", var1)
-        var2 = ((UT / 131072.0 - self._dig_T1 / 8192.0) *
-                (UT / 131072.0 - self._dig_T1 / 8192.0)) * self._dig_T3
+        var2 = (
+            (UT / 131072.0 - self._dig_T1 / 8192.0)
+            * (UT / 131072.0 - self._dig_T1 / 8192.0)
+        ) * self._dig_T3
         # print("DEBUG: var2 = ", var2)
         t_fine = int(var1 + var2)
         # print("DEBUG: t_fine = ", t_fine)
@@ -222,12 +225,15 @@ class Bme280base:
         adc_H_lsb = self._readU8(Reg.HUMID_LSB)
         adc_H = adc_H_msb << 8 | adc_H_lsb
         var_H = t_fine - 76800.0
-        var_H = (
-            (adc_H - (self._dig_H4 * 64.0 + self._dig_H5 / 16384.0 * var_H)) * (
-                self._dig_H2 / 65536.0 * (
-                    1.0 + self._dig_H6 / 67108864 * var_H *
-                    (1.0 + self._dig_H3 / 67108864.0 * var_H)
-                )
+        var_H = (adc_H - (self._dig_H4 * 64.0 + self._dig_H5 / 16384.0 * var_H)) * (
+            self._dig_H2
+            / 65536.0
+            * (
+                1.0
+                + self._dig_H6
+                / 67108864
+                * var_H
+                * (1.0 + self._dig_H3 / 67108864.0 * var_H)
             )
         )
         var_H = var_H * (1.0 - self._dig_H1 * var_H / 524288.0)
@@ -312,13 +318,13 @@ class Bme280i2c(Bme280base):
         super(Bme280i2c, self).__init__()
 
     def _reset(self):
-        self._i2c.write_to(Reg.SOFTRESET, b'\xb6')
+        self._i2c.write_to(Reg.SOFTRESET, b"\xb6")
 
     def _oversample_hum(self):
-        self._i2c.write_to(Reg.CTRLHUM, b'\x03')
+        self._i2c.write_to(Reg.CTRLHUM, b"\x03")
 
     def _forcedmode(self):
-        self._i2c.write_to(Reg.CONTROL, b'\xfe')
+        self._i2c.write_to(Reg.CONTROL, b"\xfe")
 
     def _readU8(self, register):
         return self._i2c.read_from(register, 1)[0]
